@@ -12,10 +12,13 @@
   "keywords": [],
   "description": "",
   "dependencies": {
+    "cors": "^2.8.5",
     "express": "^4.21.1",
+    "sequelize": "^6.37.4",
     "ts-node-dev": "^2.0.0"
   },
   "devDependencies": {
+    "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
     "@types/node": "^22.7.9",
     "nodemon": "^3.1.7",
