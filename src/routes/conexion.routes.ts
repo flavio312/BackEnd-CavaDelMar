@@ -1,8 +1,8 @@
 import express from 'express';
 import { createAdm, getAdms } from '../controllers/adm.controller';
-import { getPeces } from '../controllers/peces.controller';
-import { getSales } from '../controllers/sales.controller';
-import { getTanque } from '../controllers/tanque.controller';
+import { createPeces, getPeces } from '../controllers/peces.controller';
+import { createSales, getSales } from '../controllers/sales.controller';
+import { createTanque, getTanque } from '../controllers/tanque.controller';
 import { getUsua,createUser, loginUser } from '../controllers/user.controller';
 
 const router = express.Router();
@@ -15,6 +15,8 @@ router.get('/user', getUsua);
 
 router.post('/adm', createAdm);
 router.post('/user', createUser);
-
+router.post('/peces',createPeces);
+router.post('/sales', createSales);
+router.post('/tanque', createTanque);
 
 export default router;
