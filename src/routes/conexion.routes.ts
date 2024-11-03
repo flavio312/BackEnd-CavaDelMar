@@ -3,7 +3,7 @@ import { createAdm, getAdms } from '../controllers/adm.controller';
 import { createPeces, getPeces } from '../controllers/peces.controller';
 import { createSales, getSales } from '../controllers/sales.controller';
 import { createTanque, getTanque } from '../controllers/tanque.controller';
-import { getUsua,createUser, loginUser } from '../controllers/user.controller';
+import { getUsua,createUser, deleteUser, updateUser } from '../controllers/user.controller';
 
 const router = express.Router();
 
@@ -18,5 +18,9 @@ router.post('/user', createUser);
 router.post('/peces',createPeces);
 router.post('/sales', createSales);
 router.post('/tanque', createTanque);
+
+router.delete('/user/:id',deleteUser);
+
+router.post('/user/:id',updateUser);
 
 export default router;
