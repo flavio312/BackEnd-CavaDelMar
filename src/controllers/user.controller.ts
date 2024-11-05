@@ -1,5 +1,6 @@
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import { sendMessageToQueue } from '../rabbitmq.services';
 import { Request, Response } from "express";
 import database from "../config/db";
 
@@ -16,24 +17,34 @@ export const createUser = async (req: Request, res: Response) => {
   const { nombre, contrasena } = req.body;
 
   try {
-      const saltRounds = 10;
-      const hashedPassword = await bcrypt.hash(contrasena, saltRounds);
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(contrasena, saltRounds);
 
-      const [result] = await database.query(
-        'INSERT INTO Usua (nombre, contrasena) VALUES (?, ?)',
-        [nombre, hashedPassword]
-      );
+    const [result] = await database.query(
+      'INSERT INTO Usua (nombre, contrasena) VALUES (?, ?)',
+      [nombre, hashedPassword]
+    );
 
-      const secretKey = process.env.JWT_SECRET || 'tu_clave_secreta';
-      const token = jwt.sign({ id: (result as any).insertId, nombre }, secretKey, { expiresIn: '1h' });
+    const message = {
+      action: 'create',
+      id: (result as any).insertId,
+      nombre,
+      hashedPassword
+    };
 
-      res.status(201).json({
-        message: 'Usuario creado exitosamente',
-        data: { id: (result as any).insertId, nombre },
-        token
-      });
+    // Enviar mensaje a RabbitMQ
+    await sendMessageToQueue('userQueue', JSON.stringify(message));
+
+    const secretKey = process.env.JWT_SECRET || 'tu_clave_secreta';
+    const token = jwt.sign({ id: (result as any).insertId, nombre }, secretKey, { expiresIn: '1h' });
+
+    res.status(201).json({
+      message: 'Usuario creado exitosamente',
+      data: { id: (result as any).insertId, nombre },
+      token
+    });
   } catch (error) {
-      res.status(500).json({ error: error });
+    res.status(500).json({ error: error });
   }
 };
 
@@ -74,6 +85,16 @@ export const updateUser = async (req: Request, res: Response) => {
       [nombre, hashedPassword, id]
     );
 
+    const message = {
+      action: 'update',
+      id,
+      nombre,
+      hashedPassword
+    };
+
+    // Enviar mensaje a RabbitMQ
+    await sendMessageToQueue('userQueue', JSON.stringify(message));
+
     res.json({
       message: 'Usuario actualizado exitosamente',
       data: { id, nombre }
@@ -83,11 +104,20 @@ export const updateUser = async (req: Request, res: Response) => {
   }
 };
 
+
 export const deleteUser = async (req: Request, res: Response) => {
   const { id } = req.params;
 
   try {
     await database.query('DELETE FROM Usua WHERE id_Usuario = ?', [id]);
+
+    const message = {
+      action: 'delete',
+      id
+    };
+
+    // Enviar mensaje a RabbitMQ
+    await sendMessageToQueue('userQueue', JSON.stringify(message));
 
     res.json({ message: 'Usuario eliminado exitosamente' });
   } catch (error) {
