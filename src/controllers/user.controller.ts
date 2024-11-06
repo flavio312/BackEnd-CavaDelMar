@@ -32,7 +32,6 @@ export const createUser = async (req: Request, res: Response) => {
       hashedPassword
     };
 
-    // Enviar mensaje a RabbitMQ
     await sendMessageToQueue('userQueue', JSON.stringify(message));
 
     const secretKey = process.env.JWT_SECRET || 'tu_clave_secreta';
@@ -92,7 +91,6 @@ export const updateUser = async (req: Request, res: Response) => {
       hashedPassword
     };
 
-    // Enviar mensaje a RabbitMQ
     await sendMessageToQueue('userQueue', JSON.stringify(message));
 
     res.json({

@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import database from "../config/db";
+import { sendMessageToQueue } from "../rabbitmq.services";
 
 export const getTanque = async (req: Request, res: Response) =>{
     try{
@@ -15,12 +16,24 @@ export const createTanque = async (req: Request, res: Response) => {
     
     try {
       const [result] = await database.query(
-        'INSERT INTO Tanque (capacidad, temperatura, ph, turbidez_agua, nivel_agua) VALUES (?, ?, ?, ?, ?, ?)',
+        'INSERT INTO Tanque (capacidad, temperatura, ph, turbidez_agua, nivel_agua) VALUES (?, ?, ?, ?, ?)',
         [capacidad, temperatura, ph, turbidez_agua, nivel_agua]
       );
-  
+
+      const message = {
+        action: 'create',
+        id: (result as any).insertId,
+        capacidad, 
+        temperatura, 
+        ph, 
+        turbidez_agua, 
+        nivel_agua
+      };
+      
+      await sendMessageToQueue('tanqueQueue',JSON.stringify(message));
+      
       res.status(201).json({
-        message: 'Administrador creado exitosamente',
+        message: 'Datos del estanque registrado',
         data: { id: (result as any).insertId, capacidad, temperatura, ph, turbidez_agua, nivel_agua }
       });
     } catch (error) {

@@ -1,5 +1,7 @@
 import { Request, Response } from "express";
 import database from "../config/db";
+import { send } from "process";
+import { sendMessageToQueue } from "../rabbitmq.services";
 
 export const getPeces = async (req: Request, res:Response) =>{
     try{
@@ -18,6 +20,15 @@ export const createPeces = async (req: Request, res: Response)=>{
             'INSERT INTO Peces(peso, tipo) VALUE (?,?)',
             [peso, tipo]
         );
+
+        const message = {
+            action: 'create',
+            id:(result as any).insertId,
+            peso,
+            tipo
+        };
+
+        await sendMessageToQueue('pecesQueue',JSON.stringify(message));
 
         res.status(201).json({
             message: 'Datos guardados correctamente',
