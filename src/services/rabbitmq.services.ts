@@ -7,17 +7,14 @@ export const connectToRabbitMQ = async () => {
   try {
     const connection = await amqp.connect(RABBITMQ_URL);
     channel = await connection.createChannel();
-    console.log('Conectado a RabbitMQ');
-
     connection.on('close', () => {
       console.error('Conexión a RabbitMQ cerrada, intentando reconectar...');
-      channel = null; // Reiniciamos el canal
-      setTimeout(connectToRabbitMQ, 1000); // Reintentar conexión
+      channel = null; 
+      setTimeout(connectToRabbitMQ, 2000);
     });
   } catch (error) {
     console.error('Error conectando a RabbitMQ:', error);
-    // Reintentar conexión en caso de error
-    setTimeout(connectToRabbitMQ, 1000);
+    setTimeout(connectToRabbitMQ, 2000);
   }
 };
 

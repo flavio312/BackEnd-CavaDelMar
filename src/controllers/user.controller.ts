@@ -1,33 +1,33 @@
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import { sendMessageToQueue } from '../rabbitmq.services';
+import { sendMessageToQueue } from '../services/rabbitmq.services';
 import { Request, Response } from "express";
-import database from "../config/db";
+import Usuario from '../models/user.models';
 
-export const getUsua = async (req: Request, res: Response) => {
+export const getUsua = async (req: Request, res: Response):Promise<any>=> {
   try {
-    const [rows] = await database.query('SELECT * FROM Usua'); 
-    res.json(rows);
+    const usua = await Usuario.findAll(); 
+    res.json(usua);
   } catch (error) {
-    res.status(500).json({ error: error });
+    res.status(500).json(error);
   }
 };
 
-export const createUser = async (req: Request, res: Response) => {
+export const createUser = async (req: Request, res: Response):Promise<any>=> {
   const { nombre, contrasena } = req.body;
 
   try {
     const saltRounds = 10;
     const hashedPassword = await bcrypt.hash(contrasena, saltRounds);
 
-    const [result] = await database.query(
-      'INSERT INTO Usua (nombre, contrasena) VALUES (?, ?)',
-      [nombre, hashedPassword]
-    );
+    const newUsuario = await Usuario.create({
+      nombre,
+      contrasena: hashedPassword
+    });
 
     const message = {
       action: 'create',
-      id: (result as any).insertId,
+      id: newUsuario.getDataValue('id_Usuario'),
       nombre,
       hashedPassword
     };
@@ -35,32 +35,31 @@ export const createUser = async (req: Request, res: Response) => {
     await sendMessageToQueue('userQueue', JSON.stringify(message));
 
     const secretKey = process.env.JWT_SECRET || 'tu_clave_secreta';
-    const token = jwt.sign({ id: (result as any).insertId, nombre }, secretKey, { expiresIn: '1h' });
+    const token = jwt.sign({ id: newUsuario.getDataValue('id_Usuario'), nombre }, secretKey, { expiresIn: '1h' });
 
     res.status(201).json({
       message: 'Usuario creado exitosamente',
-      data: { id: (result as any).insertId, nombre },
+      data: newUsuario,
       token
     });
   } catch (error) {
-    res.status(500).json({ error: error });
+    console.log(error);
+    res.status(500).json(error);
   }
 };
 
-export const loginUser = async (req: Request, res: Response) => {
+export const loginUser = async (req: Request, res: Response):Promise<any> => {
   const { nombre, contrasena } = req.body;
 
   try {
-    const [rows]: any = await database.query('SELECT * FROM Usua WHERE nombre = ?', [nombre]);
-    if (rows.length === 0) return res.status(404).json({ message: 'Usuario no encontrado' });
+    const user = await Usuario.findOne({ where: { nombre } });
+    if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
 
-    const user = rows[0];
-
-    const isMatch = await bcrypt.compare(contrasena, user.contrasena);
+    const isMatch = await bcrypt.compare(contrasena, user.getDataValue('contrasena'));
     if (!isMatch) return res.status(401).json({ message: 'Contraseña incorrecta' });
 
-    const secretKey = process.env.JWT_SECRET as string;
-    const token = jwt.sign({ id: user.id, nombre: user.nombre }, secretKey, { expiresIn: '1h' });
+    const secretKey = process.env.JWT_SECRET || 'tu_clave_secreta';
+    const token = jwt.sign({ id: user.getDataValue('id_Usuario'), nombre: user.getDataValue('nombre') }, secretKey, { expiresIn: '1h' });
 
     res.json({ message: 'Inicio de sesión exitoso', token });
   } catch (error) {
@@ -68,7 +67,7 @@ export const loginUser = async (req: Request, res: Response) => {
   }
 };
 
-export const updateUser = async (req: Request, res: Response) => {
+export const updateUser = async (req: Request, res: Response):Promise<any> => {
   const { id } = req.params;
   const { nombre, contrasena } = req.body;
 
@@ -79,10 +78,14 @@ export const updateUser = async (req: Request, res: Response) => {
       hashedPassword = await bcrypt.hash(contrasena, saltRounds);
     }
 
-    const [result] = await database.query(
-      'UPDATE Usua SET nombre = ?, contrasena = ? WHERE id_Usuario = ?',
-      [nombre, hashedPassword, id]
+    const [affectedRows] = await Usuario.update(
+      { nombre, contrasena: hashedPassword },
+      { where: { id_Usuario: id } }
     );
+
+    if (affectedRows === 0) {
+      return res.status(404).json({ message: 'Usuario no encontrado' });
+    }
 
     const message = {
       action: 'update',
@@ -98,27 +101,31 @@ export const updateUser = async (req: Request, res: Response) => {
       data: { id, nombre }
     });
   } catch (error) {
-    res.status(500).json({ error: error });
+    res.status(500).json({ error });
   }
 };
 
-
-export const deleteUser = async (req: Request, res: Response) => {
+export const deleteUser = async (req: Request, res: Response):Promise<any>=> {
   const { id } = req.params;
 
   try {
-    await database.query('DELETE FROM Usua WHERE id_Usuario = ?', [id]);
+    const deletedRows = await Usuario.destroy({ where: { id_Usuario: id } });
+
+    if (deletedRows === 0) {
+      return res.status(404).json({ message: 'Usuario no encontrado' });
+    }
 
     const message = {
       action: 'delete',
       id
     };
 
-    // Enviar mensaje a RabbitMQ
     await sendMessageToQueue('userQueue', JSON.stringify(message));
 
     res.json({ message: 'Usuario eliminado exitosamente' });
   } catch (error) {
-    res.status(500).json({ error: error });
+    res.status(500).json({ error });
   }
 };
+
+
