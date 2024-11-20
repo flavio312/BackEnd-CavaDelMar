@@ -4,13 +4,20 @@ import sequelize from '../config/db';
 class Usuario extends Model {}
 
 Usuario.init({
-  nombre: {
+  name: {
     type: DataTypes.STRING(50),
     allowNull: false,
   },
-  contrasena: {
+  email:{
+    type: DataTypes.STRING(109),
+    allowNull:false
+  },
+  password: {
     type: DataTypes.STRING(100),
     allowNull: false,
+  },role: {
+    type: DataTypes.STRING(20),
+    allowNull: true,
   },
 }, {
   sequelize,

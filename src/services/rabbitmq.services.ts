@@ -1,6 +1,6 @@
 import amqp from 'amqplib';
 
-const RABBITMQ_URL = process.env.RABBITMQ_URL || 'amqp://231204:flavio312@localhost';
+const RABBITMQ_URL = process.env.RABBITMQ_URL || 'amqp://roque:roque@localhost';
 let channel: amqp.Channel | null = null;
 
 export const connectToRabbitMQ = async () => {

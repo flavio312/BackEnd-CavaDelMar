@@ -1,17 +1,17 @@
 import express from 'express';
 import sequelize from './src/config/db'; 
-import Adm from './src/models/adm.models';
-import Peces from './src/models/peces.models';
-import Tanque from './src/models/tanque.models';
-import Usuario from './src/models/user.models';
-import Venta from './src/models/sales.models';
+import cors from 'cors'
 import router from './src/routes/conexion.routes';
 import userRouter from './src/routes/user.routes';
 import { connectToRabbitMQ } from './src/services/rabbitmq.services';
-import client from './src/services/mqtt.services';
+import dotenv from 'dotenv';
 import { verifyConnection } from './src/services/email.services';
+import initializeWebSocket from './src/services/conexion';
 
+
+dotenv.config();
 const app = express();
+app.use(cors());
 const port = process.env.PORT || 3000;
 verifyConnection();
 
@@ -28,6 +28,10 @@ app.use('/api/users', userRouter);
     console.log('Conectado a RabbitMQ');
 
     console.log('Cliente MQTT inicializado y suscrito a topics');
+    initializeWebSocket(); // Inicia el WebSocket
+
+    console.log('Cliente WebSocket inicializado');
+
 
     app.listen(port, () => {
       console.log(`Servidor corriendo en el puerto ${port}`);

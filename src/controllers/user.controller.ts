@@ -14,28 +14,32 @@ export const getUsua = async (req: Request, res: Response):Promise<any>=> {
 };
 
 export const createUser = async (req: Request, res: Response):Promise<any>=> {
-  const { nombre, contrasena } = req.body;
+  const { name, email, password, role } = req.body;
 
   try {
     const saltRounds = 10;
-    const hashedPassword = await bcrypt.hash(contrasena, saltRounds);
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
 
     const newUsuario = await Usuario.create({
-      nombre,
-      contrasena: hashedPassword
+      name,
+      email,
+      password: hashedPassword,
+      role
     });
 
     const message = {
       action: 'create',
       id: newUsuario.getDataValue('id_Usuario'),
-      nombre,
-      hashedPassword
+      name,
+      email,
+      hashedPassword,
+      role
     };
 
     await sendMessageToQueue('userQueue', JSON.stringify(message));
 
     const secretKey = process.env.JWT_SECRET || 'tu_clave_secreta';
-    const token = jwt.sign({ id: newUsuario.getDataValue('id_Usuario'), nombre }, secretKey, { expiresIn: '1h' });
+    const token = jwt.sign({ id: newUsuario.getDataValue('id_Usuario'), name }, secretKey, { expiresIn: '1h' });
 
     res.status(201).json({
       message: 'Usuario creado exitosamente',
@@ -48,38 +52,65 @@ export const createUser = async (req: Request, res: Response):Promise<any>=> {
   }
 };
 
-export const loginUser = async (req: Request, res: Response):Promise<any> => {
-  const { nombre, contrasena } = req.body;
+export const loginUser = async (req: Request, res: Response): Promise<any> => {
+  const { email, password } = req.body;
 
   try {
-    const user = await Usuario.findOne({ where: { nombre } });
-    if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
+    console.log('Email recibido:', email);
 
-    const isMatch = await bcrypt.compare(contrasena, user.getDataValue('contrasena'));
-    if (!isMatch) return res.status(401).json({ message: 'Contraseña incorrecta' });
+    const user = await Usuario.findOne({ where: { email } });
+    if (!user) {
+      console.log('Usuario no encontrado');
+      return res.status(404).json({ message: 'Usuario no encontrado' });
+    }
+
+    console.log('Contraseña cifrada almacenada:', user.getDataValue('password'));
+
+    const isMatch = await bcrypt.compare(password, user.getDataValue('password'));
+    if (!isMatch) {
+      console.log('Contraseña incorrecta');
+      return res.status(401).json({ message: 'Contraseña incorrecta' });
+    }
 
     const secretKey = process.env.JWT_SECRET || 'tu_clave_secreta';
-    const token = jwt.sign({ id: user.getDataValue('id_Usuario'), nombre: user.getDataValue('nombre') }, secretKey, { expiresIn: '1h' });
+    const token = jwt.sign(
+      {
+        id: user.getDataValue('id_Usuario'),
+        name: user.getDataValue('name'),
+        role: user.getDataValue('role'), 
+      },
+      secretKey,
+      { expiresIn: '1h' }
+    );
 
-    res.json({ message: 'Inicio de sesión exitoso', token });
+    console.log('Token generado:', token);
+
+    res.json({
+      message: 'Inicio de sesión exitoso',
+      token,
+      role: user.getDataValue('role'), 
+    });
   } catch (error) {
+    console.error('Error al iniciar sesión:', error);
     res.status(500).json({ error: 'Error al iniciar sesión' });
   }
 };
 
+
+
 export const updateUser = async (req: Request, res: Response):Promise<any> => {
   const { id } = req.params;
-  const { nombre, contrasena } = req.body;
+  const { name, email, password, role } = req.body;
 
   try {
     const saltRounds = 10;
-    let hashedPassword = contrasena;
-    if (contrasena) {
-      hashedPassword = await bcrypt.hash(contrasena, saltRounds);
+    let hashedPassword = password;
+    if (password) {
+      hashedPassword = await bcrypt.hash(password, saltRounds);
     }
 
     const [affectedRows] = await Usuario.update(
-      { nombre, contrasena: hashedPassword },
+      { name, email, password: hashedPassword, role },
       { where: { id_Usuario: id } }
     );
 
@@ -90,42 +121,55 @@ export const updateUser = async (req: Request, res: Response):Promise<any> => {
     const message = {
       action: 'update',
       id,
-      nombre,
-      hashedPassword
+      name,
+      email,
+      hashedPassword,
+      role
     };
 
     await sendMessageToQueue('userQueue', JSON.stringify(message));
 
     res.json({
       message: 'Usuario actualizado exitosamente',
-      data: { id, nombre }
+      data: { id, name }
     });
   } catch (error) {
     res.status(500).json({ error });
   }
 };
 
-export const deleteUser = async (req: Request, res: Response):Promise<any>=> {
-  const { id } = req.params;
+export const deleteUserByEmail = async (req: Request, res: Response): Promise<any> => {
+  const { email, password } = req.body;
 
   try {
-    const deletedRows = await Usuario.destroy({ where: { id_Usuario: id } });
+    const user = await Usuario.findOne({ where: { email } });
 
-    if (deletedRows === 0) {
+    if (!user) {
       return res.status(404).json({ message: 'Usuario no encontrado' });
     }
 
+    // Accede a la contraseña en la base de datos
+    const storedPassword = user.getDataValue('password'); // Asegúrate de acceder al valor correctamente
+
+    // Verificar la contraseña proporcionada
+    const isPasswordValid = await bcrypt.compare(password, storedPassword);
+    if (!isPasswordValid) {
+      return res.status(401).json({ message: 'Contraseña incorrecta' });
+    }
+
+    // Eliminar usuario si la contraseña es válida
+    await Usuario.destroy({ where: { email } });
+
     const message = {
       action: 'delete',
-      id
+      email,
     };
 
     await sendMessageToQueue('userQueue', JSON.stringify(message));
 
     res.json({ message: 'Usuario eliminado exitosamente' });
   } catch (error) {
-    res.status(500).json({ error });
+    console.error('Error al eliminar el usuario:', error);
+    res.status(500).json({ error: 'Error al eliminar el usuario' });
   }
 };
-
-

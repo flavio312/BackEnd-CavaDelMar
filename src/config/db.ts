@@ -5,7 +5,7 @@ dotenv.config();
 
 const sequelize = new Sequelize(
   process.env.DB_NAME || 'criadero',
-  process.env.DB_USER || 'mojarras',
+  process.env.DB_USER || 'api',
   process.env.DB_PASSWORD || 'mojarras123',
   {
     host: process.env.DB_HOST || 'localhost',
@@ -15,4 +15,3 @@ const sequelize = new Sequelize(
 );
 
 export default sequelize;
-
